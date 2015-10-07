@@ -1,0 +1,153 @@
+openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini ovs bridge_mappings extnet:br-ex
+openstack-config --set /etc/neutron/plugin.ini ml2 type_drivers vxlan,flat,vlan
+ovs-vsctl br-set-external-id br-ex bridge-id br-ex
+service neutron-plugin-openvswitch-agent restart
+
+neutron net-create external_network --provider:network_type flat --provider:physical_network extnet --router:external --shared
+neutron subnet-create --name public_subnet --enable_dhcp=False --allocation-pool=start=10.1.100.16,end=10.1.100.20 --gateway=10.1.100.1 external_network 10.1.100.1/23
+neutron net-create private_network
+neutron subnet-create --name private_subnet private_network 192.168.100.0/24
+neutron subnet-create private1 10.10.1.0/24 --name private_subnet3 --allocation-pool start=10.10.1.100,end=10.10.1.200
+neutron router-create router1
+neutron router-interface-add router1 private_subnet
+neutron router-gateway-set router1 external_network
+
+ip route replace 192.168.100.0/24 via 10.1.100.16
+
+CIRROS_IMAGE_URL="http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
+curl http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img | glance image-create --name='cirros image' --is-public=true --container-format=bare --disk-format=qcow2
+glance image-list
+
+# Create new/non-admin user
+keystone tenant-create --name internal --description "internal tenant" --enabled true
+keystone user-create --name internal --tenant internal --pass "foo" --email bob@example.com --enabled true
+
+neutron net-list
+modinfo openvswitch
+ovs-vsctl show
+ovs-vsctl list-br
+ovs-vsctl list-ports br-ex # => em1,phy-br-ex
+ovs-ofctl dump-flows br-ex
+ovs-ofctl dump-ports br-ex
+ovs-ofctl show br-int
+ovs-vsctl list interface
+ovs-appctl fdb/show br-int
+
+ip route show
+echo 1 > /proc/sys/net/ipv4/ip_forward
+sysctl -a | grep ip_forward # => 1
+sestatus # => permissive
+iptables -nvL|grep 192
+ebtales -L
+brctl show
+brctl showmacs qbrc648c3ca-76
+ps afux|grep [d]nsmasq
+cat /proc/$(pidof dnsmasq)/cmdline | tr '\0' '\n'
+
+nova list
+nova show test-02
+nova floating-ip-pool-list
+nova floating-ip-list
+neutron floatingip-list
+neutron security-group-list
+neutron security-group-rule-list
+neutron subnet-show private_subnet
+
+tcpdump -nni em1 \( dst host 10.1.100.19 and port 22 \)
+tcpdump -nni em1 icmp
+tcpdump -i any -n -v \ 'icmp[icmptype] = icmp-echoreply or icmp[icmptype] = icmp-echo'
+
+service network restart
+service neutron-openvswitch-agent restart
+service neutron-server restart
+
+neutron port-list -c 1cadd5db-baae-4c87-ac86-7639c2cfe0e5 -c fixed_ips -- --device_id d5544b8e-7395-410b-b757-25b413a95717
+neutron port-list -- --device_id d5544b8e-7395-410b-b757-25b413a95717
+
+qrouter=$(ip netns|\grep ^qrouter)
+ip netns exec ${qrouter} route #=> qr-9f18b717-18
+ip netns exec ${qrouter} ip addr show qr-9f18b717-18
+ip netns exec ${qrouter} ping -c2 192.168.100.1 # gateway
+ip netns exec ${qrouter) iptables -S -t nat
+ip netns exec ${qrouter) ip -o link show qg-3ff39a23-42
+
+ip link show dev br-int #=> DOWN
+ip link set dev br-int up # Not sure if this needs to be up?
+
+INSTANCE_ID=d5544b8e-7395-410b-b757-25b413a95717
+\grep -A4 'type="bridge"' /var/lib/nova/instances/${INSTANCE_ID}/libvirt.xml
+brctl showmacs qbrdca964b0-18|grep fe:16:3e:bf:78:0f
+virsh dumpxml instance-00000003 | grep -A5 bridge
+
+IP=10.1.100.18 TAP_ID=$(neutron port-list | grep ${IP} | cut -d\| -f2 | awk '{print substr($0,2,11)}')
+ip link show dev tap${TAP_ID}
+
+## Create security group/rules
+nova secgroup-create all "Allow all tcp ports"
+nova secgroup-add-rule all TCP 1 65535 0.0.0.0/0
+nova secgroup-create base "Allow Base Access"
+nova secgroup-add-rule base TCP 22 22 0.0.0.0/0
+nova secgroup-add-rule base TCP 80 80 0.0.0.0/0
+nova secgroup-add-rule base ICMP -1 -1 0.0.0.0/0
+
+# nova boot --flavor=myFlavor.5 --key_name=controller-id_rsa --image=31939ad3-86bc-4c51-8740-d307e63edf2d --nic net-id=d063d15a-1eb7-4e6c-990a-efdc1515a3fb <INSTANCE_NAME>
+
+external_network=0f385804-d956-42be-b1e3-dbf355321795
+private_network=bbd902b1-dddd-4060-8efd-a1263fdacf50
+nova boot --image c4715493-7030-4229-a0be-b49462a44c24 --flavor m1.tiny --nic net-id=${external_network} --nic net-id=${private_network} --key-name rdokey test-20151005-01
+
+INSTANCE_NAME=test-20151006-02
+GLANCE_IMAGE_ID=c4715493-7030-4229-a0be-b49462a44c24
+PRIVATE_NET_ID="7f8821c4-7f8a-4a48-ac17-15f27a32a60c"
+nova boot --flavor m1.nano --image ${GLANCE_IMAGE_ID} --nic net-id=${PRIVATE_NET_ID} --key-name admin --security-groups base ${INSTANCE_NAME}
+
+# Associate a floating IP with the new instance
+neutron floatingip-create external_network
+FLOATINGIP_ID=
+NOVA_INSTANCE_UUID=$(nova list|\grep test|awk '{print $2}')
+neutron port-list --device-id ${NOVA_INSTANCE_UUID}
+neutron floatingip-associate ${FLOATINGIP_ID} ${PORT_ID_OF_NOVA_VM}
+neutron floatingip-show ${FLOATINGIP_ID}
+
+## Metadata
+import hmac
+import hashlib
+#grep shared_secret /etc/nova/nova.conf
+shared_secret='512b7559f0c44895'
+instance_id='cd7a945b-b63f-4837-ac02-7666438dfe7f'
+hmac.new(shared_secret, instance_id, hashlib.sha256).hexdigest()
+x_instance_id_signature="b41eb112773a450a60d8b7653f074519ef4a9be5f534f1c813b87a5c90a1e6e2"
+curl -H"x-instance-id: ${x_instance_id}" -H"x-tenant-id: ${x_tenant_id}" -H"x-instance-id-signature: ${x_instance_id_signature}" http://10.1.100.15:8775/latest/meta-data
+
+
+
+
+ovs-vsctl -- set Bridge br-int mirrors=@m \
+  --id=@veth0 get Port veth0 \
+  --id=@eth1 get Port eth1 \
+  --id=@patch-tun get Port patch-tun \
+  --id=@br-int get Port br-int \
+  --id=@m create Mirror name=veth select-src-port=@eth1,@patch-tun,@br-int \
+  select-dst-port=@eth1,@patch-tun,@br-int output-port=@veth0
+
+cat ifcfg-br-ex
+DEVICE=br-ex
+DEVICETYPE=ovs
+TYPE=OVSBridge
+MACADDR=BC:30:5B:EF:F0:68
+BOOTPROTO=static
+IPADDR=10.1.100.15
+#PREFIX=23
+NETMASK=255.255.254.0
+GATEWAY=10.1.100.1
+DNS1=8.8.8.8
+DNS2=8.8.4.4
+ONBOOT=yes
+--
+cat ifcfg-em1
+DEVICE=em1
+HWADDR=BC:30:5B:EF:F0:68
+TYPE=OVSPort
+DEVICETYPE=ovs
+OVS_BRIDGE=br-ex
+ONBOOT=yes
