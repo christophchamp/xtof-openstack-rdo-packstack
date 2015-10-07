@@ -1,0 +1,48 @@
+http://thenewstack.io/solving-a-common-beginners-problem-when-pinging-from-an-openstack-instance/
+https://cunninghamshane.com/my-all-in-one-openstack-deployment-at-home/
+http://dischord.org/2015/03/09/troubleshooting-openstack-neutron-networking-part-one/
+http://www.opencloudblog.com/?p=300
+http://wiki.stackinsider.com/index.php/Native_Stack_-_Single_Node_using_Neutron_FLAT_-_Havana
+*** http://keithtenzer.com/2015/09/01/openstack-kilo-lab-installation-and-configuration-guide/
+https://allthenodes.wordpress.com/2014/04/02/all-in-one-openstack-using-rdo-with-external-public-ips/
+
+*** http://thornelabs.net/2014/03/13/openstack-commands-cheat-sheet.html
+
+==ovs==
+https://github.com/openvswitch/ovs/blob/master/tutorial/Tutorial.md
+http://www.yet.org/2014/09/openvswitch-troubleshooting/
+
+=={ask,docs}.openstack.org==
+http://docs.openstack.org/admin-guide-cloud/networking_adv-features.html
+http://docs.openstack.org/openstack-ops/content/network_troubleshooting.html
+http://docs.openstack.org/admin-guide-cloud/networking_use.html
+https://ask.openstack.org/en/question/8290/port-on-router-to-public-gateway-always-down/
+
+==RDO==
+https://www.rdoproject.org/Networking
+https://www.rdoproject.org/Networking_in_too_much_detail
+https://www.rdoproject.org/Neutron_with_existing_external_network
+https://www.rdoproject.org/Using_provider_networks
+https://www.rdoproject.org/forum/discussion/780/confused-with-neutron-and-external-network-access/p1
+https://www.rdoproject.org/Floating_IP_range
+https://www.rdoproject.org/PackStack_All-in-One_DIY_Configuration
+https://www.rdoproject.org/Neutron_with_OVS_and_VLANs
+https://developer.rackspace.com/blog/neutron-networking-l3-agent/
+
+==Vagrant==
+http://cloudarchitectmusings.com/2013/12/01/deploy-openstack-havana-on-your-laptop-using-vagrant-and-chef/
+https://github.com/robparrott/vagrant-rdo/blob/master/Vagrantfile
+http://www.flaviof.com/blog/work/how-to-openstack-from-vagrant.html
+
+==Random==
+https://major.io/2011/09/25/getting-back-to-using-eth0-in-fedora-15/
+http://brightbyte.de/page/Guake_on_the_right_screen
+http://www.stratuslab.eu/fp7/doku.php/tutoral:examplekickstart.html
+http://www.flaviof.com/blog/work/how-to-openstack-from-vagrant.html
+
+==TODO==
+http://blog.oddbit.com/2014/01/14/direct-access-to-nova-metadata/
+https://kashyapc.fedorapeople.org/virt/openstack/enabling-metadata-service.txt
+*** https://ask.openstack.org/en/question/52698/connecting-to-existing-network-with-rdo-juno-on-centos-7/
+https://kimizhang.wordpress.com/2014/04/01/how-ml2vxlan-works/
+*** http://kashyapc.com/2015/03/
