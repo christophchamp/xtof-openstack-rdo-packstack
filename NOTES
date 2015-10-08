@@ -3,8 +3,12 @@ openstack-config --set /etc/neutron/plugin.ini ml2 type_drivers vxlan,flat,vlan
 ovs-vsctl br-set-external-id br-ex bridge-id br-ex
 service neutron-plugin-openvswitch-agent restart
 
+service network restart
+service neutron-openvswitch-agent restart
+service neutron-server restart
+
 neutron net-create external_network --provider:network_type flat --provider:physical_network extnet --router:external --shared
-neutron subnet-create --name public_subnet --enable_dhcp=False --allocation-pool=start=10.0.0.16,end=10.1.100.20 --gateway=10.0.0.1 external_network 10.0.0.1/23
+neutron subnet-create --name public_subnet --enable_dhcp=False --allocation-pool=start=10.1.100.16,end=10.1.100.20 --gateway=10.0.0.1 external_network 10.0.0.1/23
 neutron net-create private_network
 neutron subnet-create --name private_subnet private_network 192.168.100.0/24
 neutron subnet-create private1 10.10.1.0/24 --name private_subnet3 --allocation-pool start=10.10.1.100,end=10.10.1.200
@@ -43,6 +47,7 @@ brctl show
 brctl showmacs qbrc648c3ca-76
 ps afux|grep [d]nsmasq
 cat /proc/$(pidof dnsmasq)/cmdline | tr '\0' '\n'
+ps afux|grep qemu
 
 nova list
 nova show test-02
@@ -57,19 +62,19 @@ tcpdump -nni em1 \( dst host 10.0.0.19 and port 22 \)
 tcpdump -nni em1 icmp
 tcpdump -i any -n -v \ 'icmp[icmptype] = icmp-echoreply or icmp[icmptype] = icmp-echo'
 
-service network restart
-service neutron-openvswitch-agent restart
-service neutron-server restart
-
 neutron port-list -c 1cadd5db-baae-4c87-ac86-7639c2cfe0e5 -c fixed_ips -- --device_id d5544b8e-7395-410b-b757-25b413a95717
 neutron port-list -- --device_id d5544b8e-7395-410b-b757-25b413a95717
 
 qrouter=$(ip netns|\grep ^qrouter)
 ip netns exec ${qrouter} route #=> qr-9f18b717-18
 ip netns exec ${qrouter} ip addr show qr-9f18b717-18
-ip netns exec ${qrouter} ping -c2 192.168.100.1 # gateway
+ip netns exec ${qrouter} ping -c2 10.10.1.1 # gateway
 ip netns exec ${qrouter) iptables -S -t nat
 ip netns exec ${qrouter) ip -o link show qg-3ff39a23-42
+
+ip netns exec qdhcp-$(neutron net-list | \grep private1 | awk '{print $2}') ip r
+ip netns exec qrouter-$(neutron router-list | \grep router1 | awk '{print $2}') ip r
+ROUTER_GW_ID=$(neutron port-list -c id -c device_owner -- --device_id $(neutron router-list | \grep router1 | awk '{print $2}') | \grep router_gateway | awk '{print $2}')
 
 ip link show dev br-int #=> DOWN
 ip link set dev br-int up # Not sure if this needs to be up?
@@ -77,7 +82,7 @@ ip link set dev br-int up # Not sure if this needs to be up?
 INSTANCE_ID=d5544b8e-7395-410b-b757-25b413a95717
 \grep -A4 'type="bridge"' /var/lib/nova/instances/${INSTANCE_ID}/libvirt.xml
 brctl showmacs qbrdca964b0-18|grep fe:16:3e:bf:78:0f
-virsh dumpxml instance-00000003 | grep -A5 bridge
+virsh dumpxml instance-00000003 | grep -A3 bridge
 
 IP=10.0.0.18 TAP_ID=$(neutron port-list | grep ${IP} | cut -d\| -f2 | awk '{print substr($0,2,11)}')
 ip link show dev tap${TAP_ID}
@@ -89,12 +94,11 @@ nova secgroup-create base "Allow Base Access"
 nova secgroup-add-rule base TCP 22 22 0.0.0.0/0
 nova secgroup-add-rule base TCP 80 80 0.0.0.0/0
 nova secgroup-add-rule base ICMP -1 -1 0.0.0.0/0
+nova secgroup-list-rules base => iptables -L neutron-openvswi-i55bfa719-2
+ -> neutron port-list -c id -c device_owner -- --device_id $(nova list | \grep test-20151006-02 | awk '{print $2}') | \grep compute | awk '{print substr($2,1,11)}'
 
-# nova boot --flavor=myFlavor.5 --key_name=controller-id_rsa --image=31939ad3-86bc-4c51-8740-d307e63edf2d --nic net-id=d063d15a-1eb7-4e6c-990a-efdc1515a3fb <INSTANCE_NAME>
-
-external_network=0f385804-d956-42be-b1e3-dbf355321795
-private_network=bbd902b1-dddd-4060-8efd-a1263fdacf50
-nova boot --image c4715493-7030-4229-a0be-b49462a44c24 --flavor m1.tiny --nic net-id=${external_network} --nic net-id=${private_network} --key-name rdokey test-20151005-01
+nova flavor-create m1.nano 42 64 0 1
+nova flavor-list
 
 INSTANCE_NAME=test-20151006-02
 GLANCE_IMAGE_ID=c4715493-7030-4229-a0be-b49462a44c24
