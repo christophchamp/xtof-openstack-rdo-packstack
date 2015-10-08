@@ -83,6 +83,7 @@ INSTANCE_ID=d5544b8e-7395-410b-b757-25b413a95717
 \grep -A4 'type="bridge"' /var/lib/nova/instances/${INSTANCE_ID}/libvirt.xml
 brctl showmacs qbrdca964b0-18|grep fe:16:3e:bf:78:0f
 virsh dumpxml instance-00000003 | grep -A3 bridge
+xmllint --xpath '//devices/interface[@type="bridge"]/source[@bridge]' libvirt.xml
 
 IP=10.0.0.18 TAP_ID=$(neutron port-list | grep ${IP} | cut -d\| -f2 | awk '{print substr($0,2,11)}')
 ip link show dev tap${TAP_ID}
