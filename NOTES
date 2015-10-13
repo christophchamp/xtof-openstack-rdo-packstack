@@ -65,6 +65,10 @@ tcpdump -i any -n -v \ 'icmp[icmptype] = icmp-echoreply or icmp[icmptype] = icmp
 neutron port-list -c 1cadd5db-baae-4c87-ac86-7639c2cfe0e5 -c fixed_ips -- --device_id d5544b8e-7395-410b-b757-25b413a95717
 neutron port-list -- --device_id d5544b8e-7395-410b-b757-25b413a95717
 
+* Show all of the named network namespaces (found in /var/run/netns):
+ $ ip netns list
+
+* Check "qrouter" network namespace configuration:
 qrouter=$(ip netns|\grep ^qrouter)
 ip netns exec ${qrouter} route #=> qr-9f18b717-18
 ip netns exec ${qrouter} ip addr show qr-9f18b717-18
@@ -137,7 +141,7 @@ ovs-vsctl -- set Bridge br-int mirrors=@m \
   --id=@m create Mirror name=veth select-src-port=@eth1,@patch-tun,@br-int \
   select-dst-port=@eth1,@patch-tun,@br-int output-port=@veth0
 
-cat ifcfg-br-ex
+cat << EOF >/etc/sysconfig/network-scripts/ifcfg-br-ex
 DEVICE=br-ex
 DEVICETYPE=ovs
 TYPE=OVSBridge
@@ -150,11 +154,12 @@ GATEWAY=10.0.0.1
 DNS1=8.8.8.8
 DNS2=8.8.4.4
 ONBOOT=yes
---
-cat ifcfg-em1
+EOF
+cat << EOF >/etc/sysconfig/network-scripts/ifcfg-em1
 DEVICE=em1
 HWADDR=BC:30:5A:E2:F0:67
 TYPE=OVSPort
 DEVICETYPE=ovs
 OVS_BRIDGE=br-ex
 ONBOOT=yes
+EOF
