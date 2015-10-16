@@ -1,0 +1,23 @@
+== flat, gre, vlan ==
+
+A local network is a network that can only be realized on a single host. This is only used in proof-of-concept or development environments, because just about any other OpenStack environment will have multiple compute hosts and/or a separate network host.
+
+A flat network is a network that does not provide any segmentation options. A traditional L2 ethernet network is a "flat" network. Any servers attached to this network are able to see the same broadcast traffic and can contact each other without requiring a router. flat networks are often used to attach Nova servers to an existing L2 network (this is called a "provider network").
+
+A vlan network is one that uses VLANs for segmentation. When you create a new network in Neutron, it will be assigned a VLAN ID from the range you have configured in your Neutron configuration. Using vlan networks requires that any switches in your environment are configured to trunk the corresponding VLANs.
+
+gre and vxlan networks are very similar. They are both "overylay" networks that work by encapsulating network traffic. Like vlan networks, each network you create receives a unique tunnel id. Unlike vlan networks, an overlay network does not require that you synchronize your OpenStack configuration with your L2 switch configuration.
+
+Some additional comments to add to what larsks answered - In a flat network, everyone shares the same network segment. For example, say 2 tenants are sharing the cluster, and this segment is 10.4.128.0/20 - VM1 from tenant 1 might get assigned 10.4.128.3, VM1 from tenant 2 might get 10.4.128.4, and so on. This means that tenant 1 can see the traffic from tenant 2. Not a good thing in most cases.
+
+In a VLAN network, tenants are separated because each is assigned to a VLAN. In OpenVSwitch plugin (or ML2 with OVS driver), OVS will in the virtual switches allocate an internal VLAN for each tenant. If you mix in a hardware plugin like the Cisco Nexus plugin, it will be asked to allocate VLANs as well. These VLANs provide separation amongst the tenants (as VLANs are designed to do). It also means that tenants can specify the same subnet and overlap in that subnet range - VM1 from tenant 1 can get assigned IP 10.4.128.3 and VM1 from tenant 2 can also get 10.4.128.3, without conflict. This makes life easier for administrators because they don't have to worry about tenants that want the same subnet and address allocations, because the VLANs keep them separate.
+
+GRE segmenation (and VXLAN) also provides separation among tenants, and also allows overlapping subnets and IP ranges. It does this by encapsulating tenant traffic in tunnels. Say your tenant has VMs running on compute nodes A, B, and C. Neutron (along with OVS) will build a fully connected mesh of tunnels between all of these machines, and create a tunnel bridge on each of these nodes that is used to direct traffic from VMs into and out of these tunnels. If a VM on machine A wants to send packets to a VM on machine B, machine A will encapsulate the IP packets coming out of the VM using a segmentation ID that is generated for the tenant by OpenStack, and the receiving machine (B) will decapsulate the packets and route them to the destination VM using the addressing information in the ethernet frame.
+
+GRE and VXLAN scale better than VLAN, and while VLAN based networking probably has its applications (you might be integrating with a infrastructure that is VLAN-based to begin with), I have found GRE/VXLAN based OVS setups to be easier to deploy and debug than VLAN based setups (one reason is you can use a dumb switch to connect all the physical hosts), and so my feeling is you want to start there if you have a deployment scenario that involves multiple tenants and you want to allow for overlapping network segments and IP address ranges in your tenants.
+
+== Misc ==
+4095 is a special "dead" vlan for which all traffic is dropped. the
+OVS quantum agent puts a linux device on this vlan if it does not find
+a quantum port associated with the device, or if the port that is
+found should not be forwarding traffic.

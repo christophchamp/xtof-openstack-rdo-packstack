@@ -2,6 +2,7 @@ openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini o
 openstack-config --set /etc/neutron/plugin.ini ml2 type_drivers vxlan,flat,vlan
 ovs-vsctl br-set-external-id br-ex bridge-id br-ex
 service neutron-plugin-openvswitch-agent restart
+ovs-vsctl br-get-external-id br-ex # check that the key-value pair is still there
 
 service network restart
 service neutron-openvswitch-agent restart
@@ -9,6 +10,7 @@ service neutron-server restart
 
 neutron net-create external_network --provider:network_type flat --provider:physical_network extnet --router:external --shared
 neutron subnet-create --name public_subnet --enable_dhcp=False --allocation-pool=start=10.1.100.16,end=10.1.100.20 --gateway=10.0.0.1 external_network 10.0.0.1/23
+#~OR: neutron subnet-create --name public_subnet --enable_dhcp=False --allocation-pool=start=192.168.100.100,end=192.168.100.110 --gateway=192.168.100.1 public_network 192.168.100.0/24 --dns-nameservers list=true 8.8.8.8 4.2.2.2
 neutron net-create private_network
 neutron subnet-create --name private_subnet private_network 192.168.100.0/24
 neutron subnet-create private1 10.10.1.0/24 --name private_subnet3 --allocation-pool start=10.10.1.100,end=10.10.1.200
@@ -18,6 +20,9 @@ neutron router-gateway-set router1 external_network
 
 ip route replace 192.168.100.0/24 via 10.0.0.16
 
+glance image-create --name "cirros-0.3.4-x86_64" --file /tmp/images/cirros-0.3.4-x86_64-disk.img \
+--disk-format qcow2 --container-format bare --is-public true
+#~OR~
 CIRROS_IMAGE_URL="http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
 curl ${CIRROS_IMAGE_URL} | glance image-create --name='cirros image' --is-public=true --container-format=bare --disk-format=qcow2
 glance image-list
@@ -108,7 +113,7 @@ nova flavor-list
 INSTANCE_NAME=test-20151006-02
 GLANCE_IMAGE_ID=c4715493-7030-4229-a0be-b49462a44c24
 PRIVATE_NET_ID="7f8821c4-7f8a-4a48-ac17-15f27a32a60c"
-nova boot --flavor m1.nano --image ${GLANCE_IMAGE_ID} --nic net-id=${PRIVATE_NET_ID} --key-name admin --security-groups base ${INSTANCE_NAME}
+nova boot --poll --flavor m1.nano --image ${GLANCE_IMAGE_ID} --nic net-id=${PRIVATE_NET_ID} --key-name admin --security-groups base ${INSTANCE_NAME}
 
 # Associate a floating IP with the new instance
 neutron floatingip-create external_network
@@ -163,3 +168,39 @@ DEVICETYPE=ovs
 OVS_BRIDGE=br-ex
 ONBOOT=yes
 EOF
+
+==Reset networking settings==
+neutron net-delete
+neutron router-gateway-clear
+
+$ systemctl restart neutron-l3-agent.service # Performs the following:
+-----
+ip netns exec ${QROUTER} iptables-restore -c
+ip netns exec ${QROUTER} ip6tables-save -c
+ip netns exec ${QROUTER} ip6tables-restore -c
+ip netns exec ${QROUTER} ip addr show qg-ec6d7067-23
+ip netns exec ${QROUTER} ip -4 addr add 192.168.100.101/32 scope global dev qg-ec6d7067-23 brd 192.168.100.101
+ip netns exec ${QROUTER} arping -A -I qg-ec6d7067-23 -c 3 -w 4.5 192.168.100.101
+ip netns exec ${QROUTER} iptables-save -c
+ip netns exec ${QROUTER} iptables-restore -c
+-----
+
+==Multi-compute nodes==
+nova-manage service list
+neutron agent-list
+nova host-list
+
+* Clear stalled Nova build (`nova boot`) process:
+nova reset-state ${INSTANCE_ID} # Force build to error out
+nova reset-state ${INSTANCE_ID} --active
+nova delete ${INSTANCE_ID}
+
+==Tag 4095==
+ovs-vsctl show | grep -4 4095 # capture Interface, if any
+ovs-vsctl get Interface tap3d1ec842-3c external_ids
+ovs-vsctl get Interface tap3d1ec842-3c ofport
+ovs-vsctl del-port br-int tap3d1ec842-3c
+
+==Misc=
+ovs-vsctl --timeout=10 --oneline --format=json -- --columns=external_ids,name,ofport list Interface|python -mjson.tool
+rabbitmqctl list_queues
