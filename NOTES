@@ -25,6 +25,7 @@ glance image-create --name "cirros-0.3.4-x86_64" --file /tmp/images/cirros-0.3.4
 #~OR~
 CIRROS_IMAGE_URL="http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
 curl ${CIRROS_IMAGE_URL} | glance image-create --name='cirros image' --is-public=true --container-format=bare --disk-format=qcow2
+glance image-create --progress --name "Cirros 0.3.4" --disk-format qcow2 --container-format bare --is-public True --copy http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img
 glance image-list
 
 # Create new/non-admin user
@@ -204,3 +205,14 @@ ovs-vsctl del-port br-int tap3d1ec842-3c
 ==Misc=
 ovs-vsctl --timeout=10 --oneline --format=json -- --columns=external_ids,name,ofport list Interface|python -mjson.tool
 rabbitmqctl list_queues
+
+* On the network node, go to the DHCP agent network namespace (note: `stdbuf` is used to disable buffering, otherwise the text on the screen would appear with a delay):
+stdbuf -e0 -o0 ip netns exec ${QDHCP} /bin/bash
+ip link # note the tap interface
+tshark -Vi tapxxxxxxxxx-xx -Pf 'udp'
+
+* Get specified configuration setting:
+crudini --get /etc/neutron/neutron.conf keystone_authtoken auth_uri
+
+* Get a list of Neutron extensions:
+neutron ext-list
