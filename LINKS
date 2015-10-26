@@ -5,6 +5,9 @@ http://www.opencloudblog.com/?p=300
 http://wiki.stackinsider.com/index.php/Native_Stack_-_Single_Node_using_Neutron_FLAT_-_Havana
 *** http://keithtenzer.com/2015/09/01/openstack-kilo-lab-installation-and-configuration-guide/
 https://allthenodes.wordpress.com/2014/04/02/all-in-one-openstack-using-rdo-with-external-public-ips/
+http://www.ksingh.co.in/blog/2015/07/12/deploying-openstack-kilo-using-rdo/
+http://thornelabs.net/2013/12/17/deploy-rackspace-private-cloud-entirely-within-a-vagrantfile-on-virtualbox-or-vmware-fusion.html
+http://techbackground.blogspot.com/2013/05/the-quantum-l3-router-and-floating-ips.html
 
 *** http://thornelabs.net/2014/03/13/openstack-commands-cheat-sheet.html
 
@@ -49,3 +52,7 @@ https://kashyapc.fedorapeople.org/virt/openstack/enabling-metadata-service.txt
 https://kimizhang.wordpress.com/2014/04/01/how-ml2vxlan-works/
 *** http://kashyapc.com/2015/03/
 https://github.com/lorin/openstack-hackspace/blob/master/under-the-hood-network.md
+
+==TS==
+http://www.microhowto.info/troubleshooting/troubleshooting_ethernet_bridging_on_linux.html
+http://iomem.com/index.php?archives/4-Ethernet-Bridges-under-Linux.html&serendipity[entrypage]=all&serendipity[entrypage]=all
